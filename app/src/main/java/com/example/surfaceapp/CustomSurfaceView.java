@@ -8,15 +8,28 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Point;
 import android.graphics.PorterDuff;
+import android.health.connect.datatypes.WeightRecord;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+
 import androidx.annotation.NonNull;
+import java.util.ArrayList;
+import java.util.List;
 
 public class CustomSurfaceView extends SurfaceView implements SurfaceHolder.Callback {
 
     private DrawThread thread = null;
+    private final List<Circle> circles = new ArrayList<>();
+
+
+    public final int[] colours = {Color.RED, Color.WHITE, Color.BLUE, Color.YELLOW, Color.GREEN, Color.GRAY, Color.MAGENTA, Color.CYAN};
+
+    Random randomizer = new Random();
 
     public CustomSurfaceView(Context context) {
         super(context);
@@ -25,7 +38,8 @@ public class CustomSurfaceView extends SurfaceView implements SurfaceHolder.Call
 
     @Override
     public void surfaceCreated(@NonNull SurfaceHolder holder) {
-        start();
+        DrawThread drawThread = new DrawThread(holder);
+        drawThread.start();
     }
 
     @Override
@@ -42,18 +56,17 @@ public class CustomSurfaceView extends SurfaceView implements SurfaceHolder.Call
     public boolean onTouchEvent(MotionEvent event) {
         switch (event.getAction()) {
             case ACTION_DOWN:
-                thread.setPoint(new Point((int) event.getX(), (int) event.getY()));
+                int random = colours[randomizer.nextInt(colours.length)];
+                circles.add(new Circle(random, (int) event.getX(), (int) event.getY()));
+                if (circles.size() == 7) {
+                    circles.remove(0);
+                }
                 return true;
             default:
                 return super.onTouchEvent(event);
         }
     }
 
-    private void start() {
-        // new DrawThread(getHolder(), Color.BLUE, 250, 400).start();
-        thread = new DrawThread(getHolder(), Color.WHITE, 10, 10);
-        thread.start();
-    }
 
     private void stop() {
         if (thread != null) {
@@ -66,48 +79,57 @@ public class CustomSurfaceView extends SurfaceView implements SurfaceHolder.Call
 
         private SurfaceHolder holder;
         private Paint paint;
-        private Point point;
 
-        public DrawThread(SurfaceHolder holder, int color, int startX, int startY) {
+        public DrawThread(SurfaceHolder holder) {
             this.holder = holder;
-            this.point = new Point(startX, startY);
             this.paint = new Paint();
-            paint.setColor(color);
-        }
-
-        public void setPoint(Point point) {
-            this.point = point;
         }
 
         @Override
         public void run() {
             while (!isInterrupted()) {
-                update();
                 draw();
-                control();
             }
         }
 
-        private void update() {
-            int x = point.x + 10;
-            int y = point.y + 10;
-            point.set(x, y);
-        }
 
         private void draw() {
             if (holder.getSurface().isValid()) {
                 Canvas canvas = holder.lockCanvas();
                 canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
-                canvas.drawCircle(point.x, point.y, 100, paint);
+                for (Circle circle : circles) {
+                    circle.move(canvas);
+                    paint.setColor(circle.color);
+                    canvas.drawCircle(circle.x, circle.y, circle.RADIUS, paint);
+                }
                 holder.unlockCanvasAndPost(canvas);
             }
         }
+    }
+    private class Circle {
+        final int RADIUS = 100;
+        int color;
+        int step_x = 15, step_y = 15;
+        int x, y;
 
-        private void control() {
-            try {
-                Thread.sleep(10);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
+        public Circle(int color, int start_x, int start_y) {
+            this.x = start_x;
+            this.y = start_y;
+            this.color = color;
+        }
+
+        public void move(Canvas canvas) {
+            this.x = this.x + step_x;
+            this.y = this.y + step_y;
+            if (this.x >= canvas.getWidth() - 100) {
+                this.step_x = -15;
+            } else if (this.x <= 100) {
+                this.step_x = 15;
+            }
+            if (this.y >= canvas.getHeight() - 100) {
+                step_y = -15;
+            } else if (this.y <= 100) {
+                step_y = 15;
             }
         }
     }
